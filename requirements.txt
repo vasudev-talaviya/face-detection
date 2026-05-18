@@ -1,0 +1,18 @@
+dlib-bin
+scikit-learn
+
+git+https://github.com/ageitgey/face_recognition_models
+setuptools<70.0.0
+
+numpy
+opencv-python
+
+matplotlib
+pillow
+
+# Database package
+pymongo
+pydantic
+
+# .env loader package
+dotenv
