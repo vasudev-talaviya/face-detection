@@ -1,109 +1,121 @@
-# 🚀 Project Setup Guide
+﻿# Face Detection With Database
 
-> **Computer Vision · MongoDB · Python** — A compute-intensive vision pipeline with flexible local and cloud database support.
+A Python-based face detection, recognition, and registration system built with InsightFace and MongoDB.
+
+This repository provides both command-line and GUI workflows for:
+- real-time webcam face detection
+- image-based face recognition
+- unknown face registration
+- storing face embeddings in MongoDB
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
+- [Overview](#overview)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
 - [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Method 1 — Automated Setup (Recommended)](#method-1--automated-setup-recommended)
-- [Method 2 — Manual Setup](#method-2--manual-setup)
-- [Database Configuration](#database-configuration)
-- [Environment Variables](#environment-variables)
-- [Performance Notes](#performance-notes)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Database Design](#database-design)
+- [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
+- [Notes](#notes)
+
+---
+
+## Overview
+
+This project uses InsightFace to detect faces and compute face embeddings from images or webcam video.
+
+Registered embeddings are stored in MongoDB so that the system can identify known users and register unknown faces for future recognition.
+
+The main entrypoint is `main.py`.
+
+- No arguments: launches the GUI
+- `--test 1`: webcam mode
+- `--test 2 --image <path>`: image detection and registration mode
+
+---
+
+## Features
+
+- Face detection using InsightFace (`buffalo_l` model)
+- Face verification with cosine similarity and vote ratio
+- MongoDB-backed registration and lookup
+- Tkinter GUI for camera, video, and image operations
+- CLI support for quick testing
+- Automatic small-face filtering for more reliable results
+
+---
+
+## Technology Stack
+
+- Python 3.8+
+- OpenCV (`opencv-python`)
+- InsightFace
+- ONNX Runtime
+- NumPy
+- Pillow
+- Matplotlib
+- MongoDB / PyMongo
+- Pydantic
+- python-dotenv
+- Tkinter
 
 ---
 
 ## Prerequisites
 
-Before getting started, ensure the following are installed on your system:
+Install Python 3.8 or newer.
 
-| Tool | Purpose | Download |
-|------|---------|----------|
-| **Python 3.8+** | Core runtime | [python.org](https://python.org) |
-| **MongoDB Compass** *(optional)* | Local database GUI | [mongodb.com/compass](https://www.mongodb.com/products/compass) |
-| **PowerShell / pwsh** | Automated setup script | Pre-installed on Windows; `brew install --cask powershell` on macOS |
+Also install or run a MongoDB instance:
+- locally via MongoDB Community Server
+- or remotely via MongoDB Atlas
 
-> ⚠️ **Note:** This project uses computer vision algorithms that are computationally intensive. A modern CPU (or GPU) with sufficient RAM is strongly recommended. Processing times will vary based on your hardware specifications.
-
----
-
-## Quick Start
-
-Choose the method that best fits your workflow:
-
-```
-Method 1  →  Automated  →  Run setup.ps1 (fastest)
-Method 2  →  Manual     →  venv + pip install
-```
+Optional:
+- PowerShell for automated setup
+- GPU for faster face detection
 
 ---
 
-## Method 1 — Automated Setup (Recommended)
+## Installation
 
-A single PowerShell script handles the entire environment setup automatically.
+### Automated setup (recommended)
 
-### 🪟 Windows
-
-Open **Terminal** or **CMD** and run:
+From the `face-detection` folder:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 
-### 🐧 Linux / macOS
+This script should create a virtual environment and install dependencies.
 
-First, verify that `pwsh` (PowerShell Core) is installed:
+### Manual setup
 
-```bash
-pwsh --version
-```
-
-If not installed:
-```bash
-# Ubuntu / Debian
-sudo apt-get install -y powershell
-
-# macOS (Homebrew)
-brew install --cask powershell
-```
-
-Then run the setup script:
-
-```bash
-pwsh ./setup.ps1
-```
-
----
-
-## Method 2 — Manual Setup
-
-If you prefer full control or the automated script fails, follow these steps:
-
-### Step 1 — Create a Virtual Environment
+1. Create a virtual environment:
 
 ```bash
 python -m venv venv
 ```
 
-### Step 2 — Activate the Virtual Environment
+2. Activate it:
 
-**Windows:**
+- Windows:
+
 ```powershell
 ./venv/Scripts/Activate
 ```
 
-**Linux / macOS:**
+- macOS / Linux:
+
 ```bash
 source ./venv/bin/activate
 ```
 
-> ✅ You should see `(venv)` appear at the beginning of your terminal prompt.
-
-### Step 3 — Install Required Packages
+3. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -111,84 +123,147 @@ pip install -r requirements.txt
 
 ---
 
-## Database Configuration
+## Configuration
 
-This project supports both **local** and **cloud (Atlas)** MongoDB instances.
+### Environment variables
 
-### 🖥️ Local MongoDB
-
-Install and run [MongoDB Compass](https://www.mongodb.com/products/compass) on your machine. No API key is required for local connections.
-
-### ☁️ MongoDB Atlas (Cloud)
-
-1. Create a free cluster at [mongodb.com/atlas](https://www.mongodb.com/atlas)
-2. Obtain your **connection string / API key**
-3. Add it to your `.env` file (see below)
-
-### Config File
-
-All database settings are centrally managed in:
-
-```
-database/config.py
-```
-
-This file is designed for easy modification — update the connection string, database name, or collection names here without touching the rest of the codebase.
-
----
-
-## Environment Variables
-
-Create a `.env` file in the project root and configure it as follows:
+Create a `.env` file in the project root with:
 
 ```env
-# MongoDB Connection
-MONGO_URI=mongodb://localhost:27017        # Local
-# MONGO_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/  # Atlas (Cloud)
-
-MONGO_DB_NAME=your_database_name
-
-# Add other project-specific keys below
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DATABASE_NAME=face_detection_db
 ```
 
-> 🔒 Never commit your `.env` file to version control. It is already listed in `.gitignore`.
+For MongoDB Atlas:
+
+```env
+MONGODB_URL=mongodb+srv://<user>:<password>@cluster0.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DATABASE_NAME=face_detection_db
+```
+
+These values are loaded in `database/config/config.py`.
+
+### Database collection
+
+The project stores registered face records in the `ImageEmbedding` collection.
+Each record includes:
+- `name`
+- `embedding`
 
 ---
 
-## Performance Notes
+## Usage
 
-This project includes **computer vision algorithms** which are resource-intensive by nature.
+### GUI mode
 
-| Factor | Recommendation |
-|--------|---------------|
-| **CPU** | Multi-core processor (4+ cores recommended) |
-| **RAM** | 8 GB minimum; 16 GB+ for larger workloads |
-| **GPU** | Optional but significantly speeds up processing |
-| **Storage** | SSD recommended for faster I/O during processing |
+Run the project without arguments:
 
-> ⏳ **Please be patient during processing.** Execution time depends entirely on your hardware. This is expected behaviour and not a bug.
+```bash
+python main.py
+```
+
+This starts the Tkinter GUI for camera, video, and image-based operations.
+
+### CLI mode
+
+#### Webcam / live camera mode
+
+```bash
+python main.py --test 1
+```
+
+#### Static image mode
+
+```bash
+python main.py --test 2 --image path/to/image.jpg
+```
+
+### Image registration flow
+
+When using image mode:
+- no faces found → exits with a message
+- known faces found → displays registered names
+- exactly one unknown face found → allows registration
+- multiple unknown faces → registration is blocked
+
+Newly detected face images are saved to `src/detected_image/detect.jpg`.
+
+---
+
+## Database Design
+
+### Configuration
+
+`database/config/config.py` loads MongoDB settings from the environment.
+
+### Validation
+
+`database/models/faceid.py` defines the stored record schema:
+- `name: str`
+- `embedding: List[List[float]]`
+
+### Matching algorithm
+
+`models/similarity_check.py` performs face comparison by:
+- converting face embeddings into NumPy arrays
+- computing cosine similarity
+- using cosine distance threshold `0.60`
+- requiring at least `40%` vote ratio across stored embeddings
+
+A face is confirmed as a registered match only when both distance and vote-ratio conditions are satisfied.
+
+---
+
+## Project Structure
+
+```
+face-detection/
+├── database/
+│   ├── config/
+│   │   └── config.py
+│   ├── models/
+│   │   └── faceid.py
+│   └── operation/
+│       ├── basic_oper.py
+│       └── image_store.py
+├── models/
+│   └── similarity_check.py
+├── modules/
+│   ├── command/
+│   │   └── CLI.py
+│   └── pipeline/
+│       └── face_detect.py
+├── src/
+│   ├── detected_image/
+│   └── gui/
+│       └── app.py
+├── main.py
+├── requirements.txt
+├── setup.ps1
+└── README.md
+```
 
 ---
 
 ## Troubleshooting
 
-### `pwsh` not found (Linux)
-```bash
-sudo apt-get install -y powershell   # Debian/Ubuntu
-```
+### MongoDB connection errors
+- Verify `MONGODB_URL` and `MONGODB_DATABASE_NAME` in `.env`
+- Ensure MongoDB is running
 
-### Virtual environment activation fails (Windows)
-Run this in PowerShell before activating:
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
+### Webcam fails to open
+- Close other apps using the camera
+- Confirm camera permissions and device availability
 
-### MongoDB connection refused
-- Ensure MongoDB service is running: `sudo systemctl start mongod`
-- Check your `MONGO_URI` in the `.env` file
+### No face detected
+- Use a clear frontal image
+- Avoid strong blur and poor lighting
 
-### Packages fail to install
-Upgrade pip first, then retry:
+### Registration blocked for multi-face image
+- Upload a single-face image for new user registration
+
+### Dependency install issues
+
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -196,22 +271,14 @@ pip install -r requirements.txt
 
 ---
 
-## 📁 Project Structure
+## Notes
 
-```
-├── database/
-│   └── config.py          # ← Database settings (edit here)
-├── venv/                  # Virtual environment (auto-generated)
-├── requirements.txt       # Python dependencies
-├── setup.ps1              # Automated setup script
-├── .env                   # Environment variables (create manually)
-└── README.md
-```
+- Faces smaller than `80px` are skipped to reduce false positives.
+- The GUI uses Matplotlib for image display and Tkinter for controls.
+- The project is intended for learning and local experimentation.
 
 ---
 
-<div align="center">
+## License
 
-Made with ❤️ — Configure once, run anywhere.
-
-</div>
+No license file is included. Use this repository for experimentation and learning.
