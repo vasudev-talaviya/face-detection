@@ -1,0 +1,14 @@
+venv/
+__init__.py
+*.pyc
+*.pyo
+*.pyd
+.vscode/
+.DS_Store
+__pycache__/
+*.log
+*.bak
+*.tmp
+dist/
+build/
+*.whl
