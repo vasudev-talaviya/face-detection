@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('TkAgg')
 
+import os
+
 import matplotlib.pyplot as plt
 
 
