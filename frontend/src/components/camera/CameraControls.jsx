@@ -1,0 +1,64 @@
+/**
+ * CameraControls — Start/Stop/Capture camera buttons.
+ * Shared by Scanner and UsersList pages.
+ *
+ * @param {boolean} streaming - Whether camera is currently active
+ * @param {boolean} loading - Whether a scan/process is in progress
+ * @param {function} onStart - Start camera callback
+ * @param {function} onStop - Stop camera callback
+ * @param {function} onCapture - Capture frame callback
+ * @param {object} [autoScan] - Optional auto-scan config { enabled, onChange }
+ * @param {string} [startLabel="Start Camera"] - Label for start button
+ * @param {string} [captureLabel="Capture & Scan"] - Label for capture button
+ */
+import { Camera, XCircle, Loader2 } from "lucide-react";
+
+export default function CameraControls({
+  streaming,
+  loading,
+  onStart,
+  onStop,
+  onCapture,
+  autoScan,
+  startLabel = "Start Camera",
+  captureLabel = "Capture & Scan",
+}) {
+  if (!streaming) {
+    return (
+      <button className="btn btn-accent btn-sm gap-2" onClick={onStart} disabled={loading}>
+        <Camera className="w-4 h-4" /> {startLabel}
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <button
+        className="btn btn-accent btn-sm gap-2"
+        onClick={onCapture}
+        disabled={loading}
+      >
+        {loading && !autoScan?.enabled ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Camera className="w-4 h-4" />
+        )}
+        {captureLabel}
+      </button>
+      <button className="btn btn-ghost btn-sm gap-2" onClick={onStop}>
+        <XCircle className="w-4 h-4" /> Stop
+      </button>
+      {autoScan && (
+        <label className="label cursor-pointer gap-2 ml-2 bg-base-200 px-3 py-1 rounded-lg hover:bg-base-300 transition-colors">
+          <span className="label-text font-medium text-xs">Auto Scan</span>
+          <input
+            type="checkbox"
+            className="toggle toggle-primary toggle-sm"
+            checked={autoScan.enabled}
+            onChange={(e) => autoScan.onChange(e.target.checked)}
+          />
+        </label>
+      )}
+    </>
+  );
+}

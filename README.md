@@ -1,284 +1,96 @@
-﻿# Face Detection With Database
+# Face Detection Attendance API
 
-A Python-based face detection, recognition, and registration system built with InsightFace and MongoDB.
-
-This repository provides both command-line and GUI workflows for:
-- real-time webcam face detection
-- image-based face recognition
-- unknown face registration
-- storing face embeddings in MongoDB
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Database Design](#database-design)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-- [Notes](#notes)
-
----
-
-## Overview
-
-This project uses InsightFace to detect faces and compute face embeddings from images or webcam video.
-
-Registered embeddings are stored in MongoDB so that the system can identify known users and register unknown faces for future recognition.
-
-The main entrypoint is `main.py`.
-
-- No arguments: launches the GUI
-- `--test 1`: webcam mode
-- `--test 2 --image <path>`: image detection and registration mode
-
----
+A FastAPI backend for face detection, registration, recognition, and attendance tracking using InsightFace and MongoDB. A Vite React application is available in `frontend/` for UI development.
 
 ## Features
 
-- Face detection using InsightFace (`buffalo_l` model)
-- Face verification with cosine similarity and vote ratio
-- MongoDB-backed registration and lookup
-- Tkinter GUI for camera, video, and image operations
-- CLI support for quick testing
-- Automatic small-face filtering for more reliable results
+- Image-based face detection and recognition
+- Multiple distinct face templates per registered person
+- Attendance submission with duplicate prevention for registered users per day
+- Attendance correction audit records and summary reporting
+- Configurable CORS, trusted-host, image-size, and request-size protection
+- Structured API layers for routes, services, validation, shared utilities, and database operations
 
----
+## Backend Setup
 
-## Technology Stack
-
-- Python 3.8+
-- OpenCV (`opencv-python`)
-- InsightFace
-- ONNX Runtime
-- NumPy
-- Pillow
-- Matplotlib
-- MongoDB / PyMongo
-- Pydantic
-- python-dotenv
-- Tkinter
-
----
-
-## Prerequisites
-
-Install Python 3.8 or newer.
-
-Also install or run a MongoDB instance:
-- locally via MongoDB Community Server
-- or remotely via MongoDB Atlas
-
-Optional:
-- PowerShell for automated setup
-- GPU for faster face detection
-
----
-
-## Installation
-
-### Automated setup (recommended)
-
-From the `face-detection` folder:
+Use Python 3.10 or later and a running MongoDB instance.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\setup.ps1
-```
-
-This script should create a virtual environment and install dependencies.
-
-### Manual setup
-
-1. Create a virtual environment:
-
-```bash
-python -m venv venv
-```
-
-2. Activate it:
-
-- Windows:
-
-```powershell
-./venv/Scripts/Activate
-```
-
-- macOS / Linux:
-
-```bash
-source ./venv/bin/activate
-```
-
-3. Install dependencies:
-
-```bash
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-
----
-
-## Configuration
-
-### Environment variables
-
-Create a `.env` file in the project root with:
-
-```env
-MONGODB_URL=mongodb://localhost:27017
-MONGODB_DATABASE_NAME=face_detection_db
-```
-
-For MongoDB Atlas:
-
-```env
-MONGODB_URL=mongodb+srv://<user>:<password>@cluster0.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DATABASE_NAME=face_detection_db
-```
-
-These values are loaded in `database/config/config.py`.
-
-### Database collection
-
-The project stores registered face records in the `ImageEmbedding` collection.
-Each record includes:
-- `name`
-- `embedding`
-
----
-
-## Usage
-
-### GUI mode
-
-Run the project without arguments:
-
-```bash
 python main.py
 ```
 
-This starts the Tkinter GUI for camera, video, and image-based operations.
+The API starts at `http://localhost:8000`; interactive documentation is available at `/docs` unless it is disabled through configuration. For direct ASGI development startup from `backend/`, use `uvicorn app.main:app --reload`.
 
-### CLI mode
+## Configuration
 
-#### Webcam / live camera mode
+Create `.env` in the project root:
 
-```bash
-python main.py --test 1
+```env
+MONGODB_URL=mongodb://localhost:27017/
+MONGODB_DATABASE_NAME=face_detection
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+TRUSTED_HOSTS=localhost,127.0.0.1
+MAX_REQUEST_BYTES=15728640
+MAX_IMAGE_BYTES=10485760
+API_DOCS_ENABLED=true
+API_KEY=replace-with-a-random-secret-for-deployed-use
 ```
 
-#### Static image mode
+Set `CORS_ORIGINS=*` only for temporary local testing. When `API_KEY` is configured, every `/api/` route except `/api/health` requires it in the `X-API-Key` request header. In deployed environments, set explicit browser origins and trusted hosts.
 
-```bash
-python main.py --test 2 --image path/to/image.jpg
+## Endpoints
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | API liveness response |
+| `POST` | `/api/faces/detect` | Detect and match faces in a base64 image |
+| `POST` | `/api/users` | Register a face template or append one to an existing user |
+| `GET` | `/api/users` | List registered users and template counts |
+| `DELETE` | `/api/users/{user_id}` | Delete one registered user |
+| `POST` | `/api/attendance/scan` | Detect faces with attendance state and thumbnails |
+| `POST` | `/api/attendance` | Confirm attendance entries |
+| `GET` | `/api/attendance/today` | Retrieve today's attendance |
+| `GET` | `/api/attendance?date=YYYY-MM-DD` | Retrieve attendance for a date |
+| `GET` | `/api/attendance/corrections` | Retrieve correction reporting |
+
+The scan/detect endpoints accept an image data URL or plain base64 image string. The normal detection response includes an embedding so an unknown face can be submitted to registration. Legacy paths such as `/api/detect`, `/api/register`, and the former attendance action paths remain callable during migration but are omitted from API documentation.
+
+## Backend Structure
+
+```text
+backend/
+|-- app/
+|   |-- main.py               # FastAPI factory and ASGI application export
+|   |-- api/
+|   |   |-- router.py         # Shared /api router registration
+|   |   |-- dependencies.py   # Repository/service dependency construction
+|   |   |-- routes/           # Health, face detection, user, and attendance endpoints
+|   |   `-- schemas/          # HTTP request validation
+|   |-- core/                 # Settings, middleware, and API exceptions
+|   |-- db/
+|   |   |-- mongo.py          # MongoDB connection lifecycle
+|   |   `-- models/           # Collection models and shared persisted field validation
+|   |-- repositories/         # All MongoDB reads and writes
+|   |-- services/             # Attendance, user, and detection workflows
+|   |-- ml/                   # Face detector and similarity matching
+|   `-- utils/                # Image encoding and date helpers
+|-- scripts/                  # Optional command-line helpers
+|-- tests/                    # Isolated repository tests
+|-- main.py                   # Local Uvicorn launcher
+`-- requirements.txt
 ```
 
-### Image registration flow
+## Design Notes
 
-When using image mode:
-- no faces found → exits with a message
-- known faces found → displays registered names
-- exactly one unknown face found → allows registration
-- multiple unknown faces → registration is blocked
-
-Newly detected face images are saved to `src/detected_image/detect.jpg`.
-
----
-
-## Database Design
-
-### Configuration
-
-`database/config/config.py` loads MongoDB settings from the environment.
-
-### Validation
-
-`database/models/faceid.py` defines the stored record schema:
-- `name: str`
-- `embedding: List[List[float]]`
-
-### Matching algorithm
-
-`models/similarity_check.py` performs face comparison by:
-- converting face embeddings into NumPy arrays
-- computing cosine similarity
-- using cosine distance threshold `0.60`
-- requiring at least `40%` vote ratio across stored embeddings
-
-A face is confirmed as a registered match only when both distance and vote-ratio conditions are satisfied.
-
----
-
-## Project Structure
-
-```
-face-detection/
-├── database/
-│   ├── config/
-│   │   └── config.py
-│   ├── models/
-│   │   └── faceid.py
-│   └── operation/
-│       ├── basic_oper.py
-│       └── image_store.py
-├── models/
-│   └── similarity_check.py
-├── modules/
-│   ├── command/
-│   │   └── CLI.py
-│   └── pipeline/
-│       └── face_detect.py
-├── src/
-│   ├── detected_image/
-│   └── gui/
-│       └── app.py
-├── main.py
-├── requirements.txt
-├── setup.ps1
-└── README.md
-```
-
----
-
-## Troubleshooting
-
-### MongoDB connection errors
-- Verify `MONGODB_URL` and `MONGODB_DATABASE_NAME` in `.env`
-- Ensure MongoDB is running
-
-### Webcam fails to open
-- Close other apps using the camera
-- Confirm camera permissions and device availability
-
-### No face detected
-- Use a clear frontal image
-- Avoid strong blur and poor lighting
-
-### Registration blocked for multi-face image
-- Upload a single-face image for new user registration
-
-### Dependency install issues
-
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
----
-
-## Notes
-
-- Faces smaller than `80px` are skipped to reduce false positives.
-- The GUI uses Matplotlib for image display and Tkinter for controls.
-- The project is intended for learning and local experimentation.
-
----
-
-## License
-
-No license file is included. Use this repository for experimentation and learning.
+- Model loading is deferred until a detection endpoint is used, so health checks and API documentation do not initialize InsightFace.
+- Route handlers do not perform database operations; persistence is isolated under `app/repositories/`.
+- HTTP request schemas describe client payloads; MongoDB collection models and their shared validated fields live under `app/db/models/`.
+- MongoDB client construction is lazy and is shut down with the FastAPI lifespan.
+- Invalid images and invalid object IDs return client errors rather than generic server errors.
+- Known-user attendance submission creates a unique partial MongoDB index and uses an atomic insert-if-not-present operation for the user/date pair.
+- Adding an already stored template to an existing person is idempotent rather than creating duplicate embedding entries.
+- Face embeddings are biometric data. Enable `API_KEY` at minimum, and use HTTPS and appropriate retention controls before exposing this API beyond a trusted development environment.
