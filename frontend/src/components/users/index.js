@@ -1,3 +1,0 @@
-export { default as UserCard } from './UserCard';
-export { default as RegistrationForm } from './RegistrationForm';
-export { default as HistoryModal } from './HistoryModal';
